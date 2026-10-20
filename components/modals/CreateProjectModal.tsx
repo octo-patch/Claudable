@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { MotionDiv, MotionP } from '@/lib/motion';
 import { getModelDefinitionsForCli, getDefaultModelForCli, normalizeModelId } from '@/lib/constants/cliModels';
+import { getMiniMaxModelDefinition } from '@/lib/constants/minimaxModels';
 import { fetchCliStatusSnapshot, createCliStatusFallback } from '@/hooks/useCLI';
 import type { CLIStatus } from '@/types/cli';
 
@@ -236,7 +237,8 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
   }, [open, globalSettings, loadGlobalSettings]);
 
   const selectedCLIOption = enabledCLIs.find(cli => cli.id === selectedCLI);
-  const selectedModelOption = selectedCLIOption?.models.find(model => model.id === selectedModel);
+  const selectedModelOption = selectedCLIOption?.models.find(model => model.id === selectedModel)
+    ?? (selectedCLI === 'minimax' ? getMiniMaxModelDefinition(selectedModel) : undefined);
 
   // WebSocket connection for project initialization
   const connectToProjectWebSocket = (projectId: string) => {
@@ -849,7 +851,7 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <div className="font-medium text-gray-900 ">{selectedModelOption?.name}</div>
+                          <div className="font-medium text-gray-900 ">{selectedModelOption?.name ?? selectedModel}</div>
                           {selectedModelOption?.supportsImages && (
                             <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
                               📷

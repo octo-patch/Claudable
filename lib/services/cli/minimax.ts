@@ -16,6 +16,7 @@ import { createMessage } from '@/lib/services/message';
 import { getProjectById } from '@/lib/services/project';
 import { serializeMessage, createRealtimeMessage } from '@/lib/serializers/chat';
 import { loadGlobalSettings } from '@/lib/services/settings';
+import { buildMiniMaxQueryOptions, getMiniMaxBaseUrl } from './minimaxEnvironment';
 import {
   markUserRequestAsRunning,
   markUserRequestAsCompleted,
@@ -27,25 +28,8 @@ import {
   normalizeMiniMaxModelId,
 } from '@/lib/constants/minimaxModels';
 
-/**
- * Regional Anthropic-compatible endpoints for MiniMax.
- * `global_en` targets the international API at api.minimax.io.
- * `cn_zh` targets the China API at api.minimaxi.com.
- */
-const MINIMAX_REGIONAL_BASE_URLS: Record<string, string> = {
-  global_en: 'https://api.minimax.io/anthropic',
-  cn_zh: 'https://api.minimaxi.com/anthropic',
-};
-
-const MINIMAX_REGION =
-  process.env.MINIMAX_REGION?.trim() || 'global_en';
-
-const MINIMAX_ANTHROPIC_BASE_URL =
-  process.env.MINIMAX_ANTHROPIC_BASE_URL?.trim() ||
-  MINIMAX_REGIONAL_BASE_URLS[MINIMAX_REGION] ||
-  MINIMAX_REGIONAL_BASE_URLS.global_en;
-
-const MINIMAX_API_TIMEOUT_MS = process.env.MINIMAX_API_TIMEOUT_MS?.trim() || '3000000';
+const MINIMAX_REGION = process.env.MINIMAX_REGION?.trim() || 'global_en';
+const MINIMAX_ANTHROPIC_BASE_URL = getMiniMaxBaseUrl();
 
 const STATUS_LABELS: Record<string, string> = {
   starting: 'Initializing MiniMax agent...',
@@ -317,54 +301,6 @@ async function executeMiniMax(
     console.warn('[MiniMaxService] Failed to load MiniMax settings:', error);
   }
 
-  const applyApiKey = (apiKey?: string) => {
-    const envUpdates: Record<string, string | undefined> = {};
-
-    if (apiKey) {
-      const apiKeyTargets = [
-        'MINIMAX_API_KEY',
-        'MINIMAXI_API_KEY',
-        'ANTHROPIC_AUTH_TOKEN',
-        'ANTHROPIC_API_KEY',
-      ];
-      for (const key of apiKeyTargets) {
-        envUpdates[key] = apiKey;
-      }
-    }
-
-    if (!process.env.ANTHROPIC_BASE_URL) {
-      envUpdates.ANTHROPIC_BASE_URL = MINIMAX_ANTHROPIC_BASE_URL;
-    }
-
-    if (!process.env.API_TIMEOUT_MS) {
-      envUpdates.API_TIMEOUT_MS = MINIMAX_API_TIMEOUT_MS;
-    }
-
-    if (!process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC) {
-      envUpdates.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
-    }
-
-    const previousValues: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries(envUpdates)) {
-      previousValues[key] = process.env[key];
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-
-    return () => {
-      for (const [key, previous] of Object.entries(previousValues)) {
-        if (previous === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = previous;
-        }
-      }
-    };
-  };
-
   publishStatus(projectId, 'starting', requestId);
   if (requestId) {
     await markUserRequestAsRunning(requestId);
@@ -422,23 +358,14 @@ async function executeMiniMax(
     await persistToolMessage(projectId, content, baseMetadata, requestId, options);
   };
 
-  const maxOutputTokens = Number(process.env.MINIMAX_MAX_OUTPUT_TOKENS ?? '3200');
-
-  const restoreApiKey = applyApiKey(configuredApiKey);
-
   try {
     publishStatus(projectId, 'running', requestId);
 
     const response = query({
       prompt: promptWithContext,
       options: {
-        workingDirectory: repoPath,
-        additionalDirectories: [repoPath],
-        model: normalizedModel,
+        ...buildMiniMaxQueryOptions(normalizedModel, repoPath, configuredApiKey),
         resume: sessionId,
-        maxOutputTokens: Number.isFinite(maxOutputTokens) ? maxOutputTokens : 3200,
-        settingSources: ['user'],
-        permissionMode: 'bypassPermissions',
         stderr: (data: string) => {
           const line = String(data).trimEnd();
           if (line) {
@@ -757,12 +684,6 @@ async function executeMiniMax(
     );
 
     throw error instanceof Error ? error : new Error(errorMessage);
-  } finally {
-    try {
-      restoreApiKey();
-    } catch (cleanupError) {
-      console.warn('[MiniMaxService] Failed to restore MiniMax API key env:', cleanupError);
-    }
   }
 }
 

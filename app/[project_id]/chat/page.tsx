@@ -65,8 +65,11 @@ type CliStatusSnapshot = {
 
 type ModelOption = Omit<ActiveModelOption, 'cli'> & { cli: string };
 
-const buildModelOptions = (statuses: Record<string, CliStatusSnapshot>): ModelOption[] =>
-  buildActiveModelOptions(statuses).map(option => ({
+const buildModelOptions = (
+  statuses: Record<string, CliStatusSnapshot>,
+  selection: { cli: string; model: string },
+): ModelOption[] =>
+  buildActiveModelOptions(statuses, selection).map(option => ({
     ...option,
     cli: option.cli,
   }));
@@ -282,7 +285,10 @@ export default function ChatPage() {
   const [isFileUpdating, setIsFileUpdating] = useState(false);
   const activeBrandColor =
     assistantBrandColors[preferredCli] || assistantBrandColors[DEFAULT_ACTIVE_CLI];
-  const modelOptions = useMemo(() => buildModelOptions(cliStatuses), [cliStatuses]);
+  const modelOptions = useMemo(
+    () => buildModelOptions(cliStatuses, { cli: preferredCli, model: selectedModel }),
+    [cliStatuses, preferredCli, selectedModel],
+  );
   const cliOptions = useMemo(
     () => CLI_ORDER.map(cli => ({
       id: cli,

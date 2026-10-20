@@ -1,4 +1,4 @@
-export type MiniMaxModelId = 'MiniMax-M3' | 'MiniMax-M2.7';
+export type MiniMaxModelId = 'MiniMax-M3.1-Flash' | 'MiniMax-M3' | 'MiniMax-M2.7';
 
 export interface MiniMaxModelDefinition {
   id: MiniMaxModelId;
@@ -14,39 +14,35 @@ export interface MiniMaxModelDefinition {
 
 export const MINIMAX_MODEL_DEFINITIONS: MiniMaxModelDefinition[] = [
   {
+    id: 'MiniMax-M3.1-Flash',
+    name: 'MiniMax M3.1 Flash',
+    description: 'MiniMax M3.1 Flash with 1M context, multimodal input and adaptive thinking',
+    supportsImages: true,
+    aliases: ['minimax-m3.1-flash', 'minimax m3.1 flash', 'm3.1-flash', 'minimax-latest', 'minimax'],
+  },
+  {
     id: 'MiniMax-M3',
     name: 'MiniMax M3',
     description: 'MiniMax M3 with 1M context, multimodal input and Claude Code compatible agent runtime',
     supportsImages: true,
-    aliases: [
-      'minimax-m3',
-      'minimaxm3',
-      'minimax m3',
-      'minimax_m3',
-      'm3',
-      'minimax-latest',
-      'minimax',
-    ],
-  },
-  {
-    id: 'MiniMax-M2.7',
-    name: 'MiniMax M2.7',
-    description: 'MiniMax M2.7 text model with 204k context and always-on thinking',
-    supportsImages: false,
-    aliases: [
-      'minimax-m2.7',
-      'minimaxm2.7',
-      'minimax m2.7',
-      'minimax_m2_7',
-      'm2.7',
-      'm27',
-    ],
+    aliases: ['minimax-m3', 'minimaxm3', 'minimax m3', 'minimax_m3', 'm3'],
   },
 ];
 
-export const MINIMAX_DEFAULT_MODEL: MiniMaxModelId = 'MiniMax-M3';
+// Keep saved legacy selections and aliases without advertising them in the catalog.
+const MINIMAX_LEGACY_MODEL_DEFINITIONS: MiniMaxModelDefinition[] = [
+  {
+    id: 'MiniMax-M2.7',
+    name: 'MiniMax M2.7',
+    supportsImages: false,
+    aliases: ['minimax-m2.7', 'minimaxm2.7', 'minimax m2.7', 'minimax_m2_7', 'm2.7', 'm27'],
+  },
+];
 
-const MINIMAX_MODEL_ALIAS_MAP: Record<string, MiniMaxModelId> = MINIMAX_MODEL_DEFINITIONS.reduce(
+export const MINIMAX_DEFAULT_MODEL: MiniMaxModelId = 'MiniMax-M3.1-Flash';
+
+const ALL_MINIMAX_MODEL_DEFINITIONS = [...MINIMAX_MODEL_DEFINITIONS, ...MINIMAX_LEGACY_MODEL_DEFINITIONS];
+const MINIMAX_MODEL_ALIAS_MAP: Record<string, MiniMaxModelId> = ALL_MINIMAX_MODEL_DEFINITIONS.reduce(
   (map, definition) => {
     definition.aliases.forEach((alias) => {
       const key = alias.trim().toLowerCase();
@@ -58,30 +54,20 @@ const MINIMAX_MODEL_ALIAS_MAP: Record<string, MiniMaxModelId> = MINIMAX_MODEL_DE
   {} as Record<string, MiniMaxModelId>,
 );
 
-export function normalizeMiniMaxModelId(model?: string | null): MiniMaxModelId {
-  if (!model) {
+export function normalizeMiniMaxModelId(model?: string | null): string {
+  const trimmed = model?.trim();
+  if (!trimmed) {
     return MINIMAX_DEFAULT_MODEL;
   }
-  const normalized = model.trim().toLowerCase();
-  if (!normalized) {
-    return MINIMAX_DEFAULT_MODEL;
-  }
-  return MINIMAX_MODEL_ALIAS_MAP[normalized] ?? MINIMAX_DEFAULT_MODEL;
+  return MINIMAX_MODEL_ALIAS_MAP[trimmed.toLowerCase()] ?? trimmed;
 }
 
 export function getMiniMaxModelDefinition(id: string): MiniMaxModelDefinition | undefined {
-  return (
-    MINIMAX_MODEL_DEFINITIONS.find((definition) => definition.id === id) ??
-    MINIMAX_MODEL_DEFINITIONS.find((definition) =>
-      definition.aliases.some((alias) => alias.toLowerCase() === id.toLowerCase()),
-    )
-  );
+  const normalized = normalizeMiniMaxModelId(id);
+  return ALL_MINIMAX_MODEL_DEFINITIONS.find((definition) => definition.id === normalized);
 }
 
 export function getMiniMaxModelDisplayName(id?: string | null): string {
-  if (!id) {
-    return getMiniMaxModelDefinition(MINIMAX_DEFAULT_MODEL)?.name ?? MINIMAX_DEFAULT_MODEL;
-  }
   const normalized = normalizeMiniMaxModelId(id);
   return getMiniMaxModelDefinition(normalized)?.name ?? normalized;
 }

@@ -589,6 +589,9 @@ export default function GlobalSettings({ isOpen, onClose, initialTab = 'general'
                               className="w-full px-3 py-1.5 border border-gray-200/50 rounded-full bg-transparent hover:bg-gray-50 text-gray-700 text-xs font-medium transition-colors focus:outline-none focus:ring-0"
                             >
                               <option value="">Select model</option>
+                              {cli.id === 'minimax' && settings.model && !cli.models.some(model => model.id === settings.model) && (
+                                <option value={settings.model}>{settings.model} (saved)</option>
+                              )}
                               {cli.models.map(model => (
                                 <option key={model.id} value={model.id}>
                                   {model.name}

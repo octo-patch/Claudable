@@ -83,7 +83,10 @@ export interface ActiveModelOption {
   available: boolean;
 }
 
-export const buildActiveModelOptions = (statuses: Record<string, ModelAvailabilityEntry>): ActiveModelOption[] => {
+export const buildActiveModelOptions = (
+  statuses: Record<string, ModelAvailabilityEntry>,
+  selection?: { cli: string; model: string },
+): ActiveModelOption[] => {
   const options: ActiveModelOption[] = [];
 
   ACTIVE_CLI_OPTIONS.forEach(({ id, name }) => {
@@ -104,6 +107,19 @@ export const buildActiveModelOptions = (statuses: Record<string, ModelAvailabili
       });
     });
   });
+
+  if (selection?.cli === 'minimax' && selection.model.trim()) {
+    const model = normalizeModelId('minimax', selection.model);
+    if (!options.some(option => option.cli === 'minimax' && option.id === model)) {
+      options.push({
+        id: model,
+        name: `${model} (saved)`,
+        cli: 'minimax',
+        cliName: ACTIVE_CLI_NAME_MAP.minimax,
+        available: Boolean(statuses.minimax?.available ?? statuses.minimax?.configured ?? true),
+      });
+    }
+  }
 
   return options;
 };
